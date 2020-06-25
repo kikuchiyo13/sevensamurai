@@ -1,0 +1,46 @@
+model {
+  ## observation model
+  for(i in 1:I) {
+    for(t in 1:T) {
+      O[i, t] ~ dbern(p.tp[t] * z[i, t] + p.fp[t] * (1 - z[i, t]))
+    }
+  }
+  ## initial distribution and system model
+  for(i in 1:I) {
+    z[i, 1] ~ dbern(phi[i, 1] * z.zero[i] + gamma[i, 1] * (1 - z.zero[i]))
+    for(j in 1:J) {
+      g[i, j, 1] <- z.zero[j] * indicator1[i, j] * indicator2[i, j] / (1 + exp(k[1] * r[i, j] + l[1]))
+    }
+    for(t in 2:T) {
+      z[i, t] ~ dbern(phi[i, t] * z[i, t-1] + gamma[i, t] * (1 - z[i, t-1]))
+      for(j in 1:J) {
+        g[i, j, t] <- z[j, t-1] * indicator1[i, j] * indicator2[i, j] / (1 + exp(k[t] * r[i, j] + l[t]))
+      }
+    }
+    for(t in 1:T) {
+      phi[i, t] <- (1 - d[t]) + d[t] * c[i, t]
+      gamma[i, t] <- e[t] + c[i, t] - e[t] * c[i, t]
+        c[i, t] <- 1 - prod(f[i, , t])
+        for(j in 1:J) {
+          f[i, j, t] <- 1 - g[i, j, t]
+        }
+    }
+  }
+  for (i in 1:I) {
+    for (j in 1:J) {
+      r[i, j] <- sqrt((x[i] - x[j])^2 + (y[i] - y[j])^2)
+      indicator1[i, j] <- ifelse(r[i, j] > 0, 1, 0)
+      indicator2[i, j] <- ifelse(r[i, j] <= 3, 1, 0)
+    }
+  }
+  ## prior distribution
+  for(t in 1:T) {
+    Dhalfpd[t] <- (log(2 - (1 / (1 + exp(l[t])))) - log(1 - (1 / (1 + exp(l[t]))))) / (k[t] * days[t])
+    p.tp[t]~ dbeta(1, 1)
+    p.fp[t]~ dbeta(1, 1)
+    e[t]~ dbeta(1, 1)
+    d[t]~ dbeta(1, 1)
+    k[t] ~ dunif(0, 10)
+    l[t] ~ dunif(-10, 10)
+  }
+}
